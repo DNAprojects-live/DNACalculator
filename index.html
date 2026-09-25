@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calc</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>
+:root{--bg:#0b0f1c;--f:#121726;--l:rgba(255,255,255,.14);--t:#f2f3f7;--m:#8a90a3;--ac:#f5c542;color-scheme:dark;box-sizing:border-box}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+html{height:100%}body{height:100%;background:var(--bg);color:var(--t);font:500 16px/1.3 Montserrat,system-ui,sans-serif;overflow:hidden;
+padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#app{max-width:480px;height:100%;margin:0 auto;display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px}
+#nickBtn{background:var(--f);border:1px solid var(--l);border-radius:20px;padding:7px 14px;color:var(--t);font:600 13px Montserrat;display:flex;gap:6px;align-items:center}
+#sciToggle{width:38px;height:38px;border-radius:50%;background:var(--f);border:1px solid var(--l);color:var(--ac);font-size:17px}
+#disp{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:6px 24px 10px;min-height:0}
+#exprLine{color:var(--m);font-size:15px;min-height:20px;text-align:right;overflow-wrap:anywhere}
+#mainDisp{font:700 54px/1.05 Montserrat;text-align:right;overflow-wrap:anywhere;letter-spacing:-.5px}
+#explain{color:var(--ac);font-size:12.5px;text-align:right;min-height:18px;margin-top:4px;opacity:.9}
+#pad{padding:8px 12px calc(14px + env(safe-area-inset-bottom,0px))}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px}
+.grid button{aspect-ratio:1.6/1;border-radius:16px;border:1px solid var(--l);font:600 16px Montserrat;color:var(--t);background:var(--f)}
+.basic .grid{margin-top:2px}
+.num{background:#1a2035}
+.op{background:var(--ac);color:#1a1400;font-size:20px}
+.fn{color:var(--m);font-size:14px}
+.eq{background:var(--ac);color:#1a1400;font-size:22px}
+#sciPad{display:none}
+#sciPad.on{display:block}
+#sciPad .grid button{font-size:13.5px}
+.active{outline:2px solid var(--ac)}
+</style></head>
+<body><div id="app">
+<header>
+<button id="nickBtn">👤 <span id="nickName">Гость</span></button>
+<button id="sciToggle">∑</button>
+</header>
+<div id="disp">
+<div id="exprLine"></div>
+<div id="mainDisp">0</div>
+<div id="explain"></div>
+</div>
+<div id="pad">
+<div id="sciPad"><div class="grid" id="sciGrid"></div></div>
+<div class="basic"><div class="grid" id="basicGrid"></div></div>
+</div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+let nick=localStorage.getItem('calcNick');if(nick){$('#nickName').textContent=nick}
+$('#nickBtn').onclick=()=>{const n=prompt('Как вас называть?',nick||'');if(n){nick=n.trim();localStorage.setItem('calcNick',nick);$('#nickName').textContent=nick}};
+
+let acc=null,op=null,cur='0',fresh=false,M=0,deg=true,sec=false;
+const fmt=n=>{if(!isFinite(n))return'Ошибка';let s=+n.toPrecision(10);return String(s)};
+const D=()=>{$('#mainDisp').textContent=cur.length>10?(+cur).toExponential(4):cur};
+const EL=t=>$('#exprLine').textContent=t;
+const EX=t=>$('#explain').textContent=t||'';
+
+function compute(a,o,b){
+  switch(o){case'+':return a+b;case'-':return a-b;case'×':return a*b;case'÷':return b===0?NaN:a/b;case'^':return Math.pow(a,b)}
+}
+function digit(d){if(fresh||cur==='0'){cur=(d==='.')?'0.':(d==='0'?'0':d);fresh=false}
+  else{if(d==='.'&&cur.includes('.'))return;cur+=d}
+  D()}
+function pressOp(o){if(op&&!fresh){acc=compute(acc,op,parseFloat(cur))}else{acc=parseFloat(cur)}
+  op=o;fresh=true;EL(fmt(acc)+' '+o);D();cur=fmt(acc);EX('')}
+function equals(){if(op==null)return;const b=parseFloat(cur);const r=compute(acc,op,b);
+  EL(fmt(acc)+' '+op+' '+fmt(b)+' =');cur=fmt(r);op=null;acc=null;fresh=true;D();EX('')}
+function ac(){acc=null;op=null;cur='0';fresh=false;EL('');EX('');D()}
+function back(){if(cur.length>1)cur=cur.slice(0,-1);else cur='0';D()}
+function pm(){cur=fmt(-parseFloat(cur));D()}
+function pct(){cur=fmt(parseFloat(cur)/100);D()}
+
+const RAD=v=>deg?v*Math.PI/180:v;
+const DEG=v=>deg?v*180/Math.PI:v;
+const uf={
+ sqrt:v=>({r:Math.sqrt(v),t:`√${fmt(v)} = ${fmt(Math.sqrt(v))} — квадратный корень из ${fmt(v)}`}),
+ cbrt:v=>({r:Math.cbrt(v),t:`∛${fmt(v)} = ${fmt(Math.cbrt(v))} — кубический корень из ${fmt(v)}`}),
+ sq:v=>({r:v*v,t:`${fmt(v)}² = ${fmt(v*v)} — квадрат числа ${fmt(v)}`}),
+ cube:v=>({r:v*v*v,t:`${fmt(v)}³ = ${fmt(v*v*v)} — куб числа ${fmt(v)}`}),
+ inv:v=>({r:1/v,t:`1/${fmt(v)} = ${fmt(1/v)} — обратное число`}),
+ ln:v=>({r:Math.log(v),t:`ln(${fmt(v)}) = ${fmt(Math.log(v))} — натуральный логарифм`}),
+ log:v=>({r:Math.log10(v),t:`log(${fmt(v)}) = ${fmt(Math.log10(v))} — десятичный логарифм`}),
+ exp:v=>({r:Math.exp(v),t:`e^${fmt(v)} = ${fmt(Math.exp(v))}`}),
+ pow10:v=>({r:Math.pow(10,v),t:`10^${fmt(v)} = ${fmt(Math.pow(10,v))}`}),
+ fact:v=>{v=Math.round(v);let f=1;for(let i=2;i<=v;i++)f*=i;return{r:f,t:`${v}! = ${fmt(f)} — факториал числа ${v}`}},
+ sin:v=>({r:sec?DEG(Math.asin(v)):Math.sin(RAD(v)),t:sec?`asin(${fmt(v)}) = ${fmt(DEG(Math.asin(v)))}°`:`sin(${fmt(v)}°) = ${fmt(Math.sin(RAD(v)))}`}),
+ cos:v=>({r:sec?DEG(Math.acos(v)):Math.cos(RAD(v)),t:sec?`acos(${fmt(v)}) = ${fmt(DEG(Math.acos(v)))}°`:`cos(${fmt(v)}°) = ${fmt(Math.cos(RAD(v)))}`}),
+ tan:v=>({r:sec?DEG(Math.atan(v)):Math.tan(RAD(v)),t:sec?`atan(${fmt(v)}) = ${fmt(DEG(Math.atan(v)))}°`:`tan(${fmt(v)}°) = ${fmt(Math.tan(RAD(v)))}`}),
+};
+function unary(key){const v=parseFloat(cur);const{r,t}=uf[key](v);cur=fmt(r);fresh=true;D();EX(t)}
+function ypow(){pressOp('^')}
+function memo(k){const v=parseFloat(cur);if(k==='m+')M+=v;if(k==='m-')M-=v;if(k==='mr'){cur=fmt(M);fresh=true;D()}if(k==='mc')M=0}
+function konst(v,label){cur=fmt(v);fresh=true;D();EX(`${label} = ${fmt(v)}`)}
+function rnd(){cur=fmt(Math.random());fresh=true;D();EX('Случайное число от 0 до 1')}
+function absv(){const v=parseFloat(cur);cur=fmt(Math.abs(v));fresh=true;D();EX(`|${fmt(v)}| = ${fmt(Math.abs(v))} — модуль числа`)}
+
+const basicBtns=[
+ ['AC','ac()','fn'],['+/-','pm()','fn'],['%','pct()','fn'],['÷','pressOp("÷")','op'],
+ ['7','digit("7")','num'],['8','digit("8")','num'],['9','digit("9")','num'],['×','pressOp("×")','op'],
+ ['4','digit("4")','num'],['5','digit("5")','num'],['6','digit("6")','num'],['−','pressOp("-")','op'],
+ ['1','digit("1")','num'],['2','digit("2")','num'],['3','digit("3")','num'],['+','pressOp("+")','op'],
+ ['⌫','back()','fn'],['0','digit("0")','num'],['.','digit(".")','num'],['=','equals()','eq'],
+];
+$('#basicGrid').innerHTML=basicBtns.map(b=>`<button class="${b[2]}" onclick='${b[1]}'>${b[0]}</button>`).join('');
+
+const sciBtns=[
+ ['2nd','sec=!sec;this.classList.toggle("active")','fn'],['|x|','absv()','fn'],['xʸ','ypow()','fn'],['√x','unary("sqrt")','fn'],
+ ['x²','unary("sq")','fn'],['x³','unary("cube")','fn'],['∛x','unary("cbrt")','fn'],['1/x','unary("inv")','fn'],
+ ['ln','unary("ln")','fn'],['log','unary("log")','fn'],['eˣ','unary("exp")','fn'],['10ˣ','unary("pow10")','fn'],
+ ['sin','unary("sin")','fn'],['cos','unary("cos")','fn'],['tan','unary("tan")','fn'],['x!','unary("fact")','fn'],
+ ['π','konst(Math.PI,"π")','fn'],['e','konst(Math.E,"e")','fn'],[()=>deg?'Deg':'Rad','deg=!deg;this.textContent=deg?"Deg":"Rad"','fn'],['Rand','rnd()','fn'],
+ ['mc','memo("mc")','fn'],['m+','memo("m+")','fn'],['m-','memo("m-")','fn'],['mr','memo("mr")','fn'],
+];
+$('#sciGrid').innerHTML=sciBtns.map(b=>{const lbl=typeof b[0]==='function'?b[0]():b[0];return `<button class="${b[2]}" onclick='${b[1]}'>${lbl}</button>`}).join('');
+$('#sciToggle').onclick=()=>{$('#sciPad').classList.toggle('on');$('#sciToggle').classList.toggle('active')};
+</script>
+</body></html>
